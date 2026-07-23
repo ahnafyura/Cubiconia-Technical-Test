@@ -21,3 +21,6 @@ npm-debug.log*
 .claude/
 .agents/
 .hallmark/
+
+*.md
+!README.md
