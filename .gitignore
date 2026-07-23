@@ -17,4 +17,7 @@ coverage/
 npm-debug.log*
 
 .vercel
-.hallmark/preflight.json
+
+.claude/
+.agents/
+.hallmark/
