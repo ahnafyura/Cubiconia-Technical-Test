@@ -1,0 +1,549 @@
+// Profit Sharing Platform — skema data
+//
+// Aturan yang ditegakkan skema ini (rincian di architecture.md):
+//   · Uang selalu BigInt dalam satuan terkecil (Rupiah). Tidak pernah Float.
+//   · Master data pakai soft delete (deletedAt). Data finansial TIDAK PUNYA delete —
+//     bahkan soft delete pun tidak; koreksi lewat entri pembalik.
+//   · Rule tidak pernah di-UPDATE. Perubahan = tutup yang lama, buka versi baru.
+//   · Distribusi menyimpan SNAPSHOT rule per lapisan, bukan referensi hidup.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+//  IDENTITY
+// ══════════════════════════════════════════════════════════════════════════
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DEACTIVATED
+}
+
+model User {
+  id           String     @id @default(uuid())
+  email        String     @unique
+  passwordHash String?    @map("password_hash") // null = SSO-only account
+  displayName  String     @map("display_name")
+  status       UserStatus @default(ACTIVE)
+
+  // Hybrid IdP (B1): identitas boleh berasal dari luar, atribut bisnis milik lokal
+  externalId   String?    @unique @map("external_id")
+  idpProvider  String?    @map("idp_provider")
+
+  roles        UserRole[]
+  employee     Employee?
+  investor     Investor?  @relation("InvestorLogin")
+
+  lastLoginAt  DateTime?  @map("last_login_at")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+  deletedAt    DateTime?  @map("deleted_at")
+
+  @@index([status])
+  @@map("users")
+}
+
+model Role {
+  id          String           @id @default(uuid())
+  key         String           @unique // admin_keuangan, ops_penjualan, investor, admin_direktori
+  name        String
+  description String?
+  users       UserRole[]
+  permissions RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id    String           @id @default(uuid())
+  key   String           @unique // profit_rule:create, distribution:approve, …
+  name  String
+  roles RolePermission[]
+
+  @@map("permissions")
+}
+
+model UserRole {
+  userId String @map("user_id")
+  roleId String @map("role_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+model RolePermission {
+  roleId       String     @map("role_id")
+  permissionId String     @map("permission_id")
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+//  DIRECTORY
+// ══════════════════════════════════════════════════════════════════════════
+
+model OrgUnit {
+  id          String            @id @default(uuid())
+  name        String
+  code        String            @unique
+  parentId    String?           @map("parent_id")
+  parent      OrgUnit?          @relation("OrgUnitTree", fields: [parentId], references: [id])
+  children    OrgUnit[]         @relation("OrgUnitTree")
+
+  ancestors   OrgUnitClosure[]  @relation("Descendant")
+  descendants OrgUnitClosure[]  @relation("Ancestor")
+  employees   Employee[]
+
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+  deletedAt   DateTime?         @map("deleted_at")
+
+  @@map("org_units")
+}
+
+/// Closure table (B3) — "seluruh karyawan di bawah Divisi X sampai level berapapun"
+/// jadi satu JOIN, bukan CTE rekursif. Baca jauh lebih sering daripada tulis.
+model OrgUnitClosure {
+  ancestorId   String  @map("ancestor_id")
+  descendantId String  @map("descendant_id")
+  depth        Int     // 0 = dirinya sendiri
+  ancestor     OrgUnit @relation("Ancestor", fields: [ancestorId], references: [id], onDelete: Cascade)
+  descendant   OrgUnit @relation("Descendant", fields: [descendantId], references: [id], onDelete: Cascade)
+
+  @@id([ancestorId, descendantId])
+  @@index([descendantId])
+  @@map("org_unit_closure")
+}
+
+model Employee {
+  id         String    @id @default(uuid())
+  userId     String?   @unique @map("user_id")
+  user       User?     @relation(fields: [userId], references: [id])
+
+  employeeNo String    @unique @map("employee_no")
+  fullName   String    @map("full_name")
+  email      String    @unique
+  phone      String?
+  position   String
+  photoUrl   String?   @map("photo_url")
+
+  orgUnitId  String?   @map("org_unit_id")
+  orgUnit    OrgUnit?  @relation(fields: [orgUnitId], references: [id])
+
+  // Reporting line, bisa lintas unit (B3 opsi 3)
+  managerId  String?   @map("manager_id")
+  manager    Employee? @relation("ReportingLine", fields: [managerId], references: [id])
+  reports    Employee[] @relation("ReportingLine")
+
+  externalId String?   @unique @map("external_id") // kunci upsert sinkronisasi IdP
+  syncedAt   DateTime? @map("synced_at")
+
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  deletedAt  DateTime? @map("deleted_at")
+
+  @@index([orgUnitId])
+  @@index([managerId])
+  @@map("employees")
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+//  CATALOG & SALES
+// ══════════════════════════════════════════════════════════════════════════
+
+model Product {
+  id             String        @id @default(uuid())
+  sku            String
+  name           String
+  category       String
+  price          BigInt        // satuan terkecil IDR
+  productionCost BigInt        @map("production_cost")
+
+  transactions   Transaction[]
+
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+  deletedAt      DateTime?     @map("deleted_at")
+
+  @@index([category])
+  @@map("products")
+}
+
+model Customer {
+  id           String        @id @default(uuid())
+  name         String
+  email        String?
+  phone        String?
+  transactions Transaction[]
+
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+  deletedAt    DateTime?     @map("deleted_at")
+
+  @@map("customers")
+}
+
+enum TransactionStatus {
+  DRAFT
+  COMPLETED
+  REFUNDED
+}
+
+model Transaction {
+  id                  String              @id @default(uuid())
+  code                String              @unique // TRX-2026-0912
+
+  customerId          String              @map("customer_id")
+  customer            Customer            @relation(fields: [customerId], references: [id])
+  productId           String              @map("product_id")
+  product             Product             @relation(fields: [productId], references: [id])
+
+  quantity            Int
+  unitPrice           BigInt              @map("unit_price")           // snapshot harga saat itu
+  unitProductionCost  BigInt              @map("unit_production_cost") // snapshot biaya saat itu
+  revenue             BigInt
+  productionCostTotal BigInt              @map("production_cost_total")
+  netProfit           BigInt              @map("net_profit")
+
+  status              TransactionStatus   @default(DRAFT)
+  completedAt         DateTime?           @map("completed_at")
+  distribution        ProfitDistribution? @relation("TransactionDistribution")
+
+  createdAt           DateTime            @default(now()) @map("created_at")
+  updatedAt           DateTime            @updatedAt @map("updated_at")
+
+  @@index([status, completedAt])
+  @@index([customerId])
+  @@map("transactions")
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+//  PROFIT SHARING — inti studi kasus
+// ══════════════════════════════════════════════════════════════════════════
+
+model Investor {
+  id            String               @id @default(uuid())
+  code          String               @unique
+  name          String
+  /// Investor bisa badan hukum; akun login terpisah dari entitas bisnisnya (B5)
+  userId        String?              @unique @map("user_id")
+  user          User?                @relation("InvestorLogin", fields: [userId], references: [id])
+
+  shares        RuleInvestorShare[]
+  entries       DistributionEntry[]
+  ledgerEntries InvestorLedgerEntry[]
+  payoutItems   PayoutItem[]
+
+  createdAt     DateTime             @default(now()) @map("created_at")
+  updatedAt     DateTime             @updatedAt @map("updated_at")
+  deletedAt     DateTime?            @map("deleted_at")
+
+  @@map("investors")
+}
+
+enum RuleStatus {
+  DRAFT
+  ACTIVE
+  SUPERSEDED
+}
+
+/// GROSS   = persentase dihitung dari laba bersih awal
+/// RESIDUAL = persentase dihitung dari sisa yang belum dialokasikan
+/// Tanpa pembeda ini, "20%" jadi ambigu begitu ada lebih dari satu lapisan.
+enum RuleBasis {
+  GROSS
+  RESIDUAL
+}
+
+model ProfitSharingRule {
+  id              String              @id @default(uuid())
+  name            String
+  description     String?
+
+  // ── Kondisi — NULL berarti "berlaku untuk semua"
+  productCategory String?             @map("product_category")
+  minProfit       BigInt?             @map("min_profit")
+  maxProfit       BigInt?             @map("max_profit")
+
+  // ── Temporal — rule tidak pernah di-update, hanya digantikan
+  validFrom       DateTime            @map("valid_from")
+  validTo         DateTime?           @map("valid_to")
+  supersededById  String?             @unique @map("superseded_by")
+  supersededBy    ProfitSharingRule?  @relation("RuleVersion", fields: [supersededById], references: [id])
+  supersedes      ProfitSharingRule?  @relation("RuleVersion")
+  version         Int                 @default(1)
+
+  // ── Perilaku dalam rantai composable (A1)
+  executionOrder  Int                 @default(100) @map("execution_order")
+  stackable       Boolean             @default(true)  // false = menutup rantai
+  basis           RuleBasis           @default(RESIDUAL)
+
+  priority        Int                 @default(0)
+  specificity     Int                 @default(0) // dihitung sekali saat dibuat
+  status          RuleStatus          @default(DRAFT)
+  isSystemDefault Boolean             @default(false) @map("is_system_default")
+
+  shares          RuleInvestorShare[]
+  layers          DistributionLayer[]
+
+  createdAt       DateTime            @default(now()) @map("created_at")
+  createdBy       String              @map("created_by")
+  deletedAt       DateTime?           @map("deleted_at")
+
+  @@index([status, validFrom, validTo])
+  @@index([productCategory, status])
+  @@index([executionOrder])
+  @@map("profit_sharing_rules")
+}
+
+model RuleInvestorShare {
+  id           String            @id @default(uuid())
+  ruleId       String            @map("rule_id")
+  rule         ProfitSharingRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  investorId   String            @map("investor_id")
+  investor     Investor          @relation(fields: [investorId], references: [id])
+  /// Basis point (1/100 %) — integer, supaya tidak ada float di jalur uang.
+  /// 2550 = 25,50 %
+  basisPoints  Int               @map("basis_points")
+
+  @@unique([ruleId, investorId])
+  @@map("rule_investor_shares")
+}
+
+enum DistributionStatus {
+  CALCULATED
+  PENDING_APPROVAL
+  SETTLED
+  REJECTED
+  REVERSED
+}
+
+/// APPEND-ONLY. Tidak ada updatedAt, tidak ada deletedAt.
+/// Koreksi dilakukan lewat distribusi REVERSAL, bukan mengubah baris ini.
+model ProfitDistribution {
+  id                String              @id @default(uuid())
+  code              String              @unique // DST-2026-0912
+
+  /// UNIQUE = jaminan idempotensi lapisan kedua. Bahkan bila event terkirim
+  /// ganda, database menolak distribusi kedua untuk transaksi yang sama.
+  transactionId     String              @unique @map("transaction_id")
+  transaction       Transaction         @relation("TransactionDistribution", fields: [transactionId], references: [id])
+
+  netProfit         BigInt              @map("net_profit")
+  totalDistributed  BigInt              @map("total_distributed")
+  retainedByCompany BigInt              @map("retained_by_company") // A2 + A7
+
+  isFallback        Boolean             @default(false) @map("is_fallback")   // A3
+  overAllocated     Boolean             @default(false) @map("over_allocated") // pagar composable
+
+  status            DistributionStatus  @default(CALCULATED)
+  approvedBy        String?             @map("approved_by")
+  approvedAt        DateTime?           @map("approved_at")
+  rejectedReason    String?             @map("rejected_reason")
+
+  reversalOfId      String?             @unique @map("reversal_of")
+  reversalOf        ProfitDistribution? @relation("Reversal", fields: [reversalOfId], references: [id])
+  reversedBy        ProfitDistribution? @relation("Reversal")
+
+  layers            DistributionLayer[]
+  ledgerEntries     InvestorLedgerEntry[]
+
+  distributedAt     DateTime            @default(now()) @map("distributed_at")
+
+  @@index([status, distributedAt])
+  @@index([isFallback])
+  @@map("profit_distributions")
+}
+
+/// Satu baris per rule dalam rantai composable.
+/// Tanpa entitas ini, hasil berlapis cuma daftar angka tanpa jejak — dan
+/// pertanyaan "porsi ini dari rule yang mana?" jadi tak terjawab.
+model DistributionLayer {
+  id              String              @id @default(uuid())
+  distributionId  String              @map("distribution_id")
+  distribution    ProfitDistribution  @relation(fields: [distributionId], references: [id], onDelete: Cascade)
+  layerIndex      Int                 @map("layer_index")
+
+  ruleId          String              @map("rule_id")
+  rule            ProfitSharingRule   @relation(fields: [ruleId], references: [id])
+  /// SNAPSHOT utuh rule + seluruh persentase pada detik distribusi terjadi.
+  /// Bahkan bila rule kelak hilang, hasilnya tetap bisa dijelaskan.
+  ruleSnapshot    Json                @map("rule_snapshot")
+
+  basisType       RuleBasis           @map("basis_type")
+  basisAmount     BigInt              @map("basis_amount")     // dasar hitung lapisan ini
+  allocatedAmount BigInt              @map("allocated_amount") // hasil setelah kemungkinan clamp
+  clamped         Boolean             @default(false)
+
+  entries         DistributionEntry[]
+
+  @@unique([distributionId, layerIndex])
+  @@map("distribution_layers")
+}
+
+model DistributionEntry {
+  id           String            @id @default(uuid())
+  layerId      String            @map("layer_id")
+  layer        DistributionLayer @relation(fields: [layerId], references: [id], onDelete: Cascade)
+  investorId   String            @map("investor_id")
+  investor     Investor          @relation(fields: [investorId], references: [id])
+
+  basisPoints  Int               @map("basis_points") // persentase yang benar-benar dipakai
+  amount       BigInt
+
+  @@index([investorId])
+  @@map("distribution_entries")
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+//  INVESTOR LEDGER — append-only, ditegakkan di level database
+// ══════════════════════════════════════════════════════════════════════════
+
+enum LedgerEntryType {
+  PROFIT_SHARE
+  PAYOUT
+  REVERSAL
+  ADJUSTMENT
+}
+
+/// APPEND-ONLY. Migrasi memasang RULE Postgres yang membuat UPDATE dan DELETE
+/// pada tabel ini tidak melakukan apa-apa — disiplin developer tidak cukup
+/// untuk sesuatu yang menyangkut uang.
+model InvestorLedgerEntry {
+  id             String              @id @default(uuid())
+  investorId     String              @map("investor_id")
+  investor       Investor            @relation(fields: [investorId], references: [id])
+
+  sequenceNo     BigInt              @default(autoincrement()) @map("sequence_no")
+  entryType      LedgerEntryType     @map("entry_type")
+  amount         BigInt              // boleh negatif
+  /// Checksum berjalan — job rekonsiliasi memverifikasi kolom ini terhadap
+  /// SUM(amount) seluruh baris sebelumnya. Selisih = alarm, bukan misteri.
+  balanceAfter   BigInt              @map("balance_after")
+
+  distributionId String?             @map("distribution_id")
+  distribution   ProfitDistribution? @relation(fields: [distributionId], references: [id])
+  payoutItemId   String?             @unique @map("payout_item_id")
+  payoutItem     PayoutItem?         @relation(fields: [payoutItemId], references: [id])
+
+  description    String?
+  occurredAt     DateTime            @map("occurred_at")
+  createdAt      DateTime            @default(now()) @map("created_at")
+  // Tanpa updatedAt. Tanpa deletedAt. Tanpa pengecualian.
+
+  @@index([investorId, sequenceNo])
+  @@map("investor_ledger_entries")
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+//  PAYOUT — pencairan periodik (A6)
+// ══════════════════════════════════════════════════════════════════════════
+
+enum PayoutStatus {
+  DRAFT
+  EXECUTED
+  CANCELLED
+}
+
+model PayoutBatch {
+  id          String       @id @default(uuid())
+  code        String       @unique // PAY-2026-07
+  periodStart DateTime     @map("period_start")
+  periodEnd   DateTime     @map("period_end")
+  totalAmount BigInt       @map("total_amount")
+  status      PayoutStatus @default(DRAFT)
+
+  items       PayoutItem[]
+
+  createdBy   String       @map("created_by")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  executedAt  DateTime?    @map("executed_at")
+
+  @@map("payout_batches")
+}
+
+model PayoutItem {
+  id          String               @id @default(uuid())
+  batchId     String               @map("batch_id")
+  batch       PayoutBatch          @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  investorId  String               @map("investor_id")
+  investor    Investor             @relation(fields: [investorId], references: [id])
+  amount      BigInt
+  ledgerEntry InvestorLedgerEntry?
+
+  @@unique([batchId, investorId])
+  @@map("payout_items")
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+//  INFRASTRUCTURE — outbox, idempotency, audit
+// ══════════════════════════════════════════════════════════════════════════
+
+/// Pola outbox. Event dan perubahan data disimpan dalam SATU transaksi database,
+/// sehingga mustahil ada transaksi tercatat yang eventnya hilang. Poller memakai
+/// SELECT … FOR UPDATE SKIP LOCKED — aman multi-instance tanpa broker.
+model OutboxEvent {
+  id            String    @id @default(uuid())
+  eventType     String    @map("event_type")
+  aggregateType String    @map("aggregate_type")
+  aggregateId   String    @map("aggregate_id")
+  payload       Json
+
+  processedAt   DateTime? @map("processed_at")
+  attempts      Int       @default(0)
+  lastError     String?   @map("last_error")
+
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  @@index([processedAt, createdAt])
+  @@map("outbox_events")
+}
+
+model IdempotencyKey {
+  key         String    @id
+  fingerprint String
+  status      String    // IN_PROGRESS | COMPLETED
+  response    Json?
+  statusCode  Int?      @map("status_code")
+
+  createdAt   DateTime  @default(now()) @map("created_at")
+  expiresAt   DateTime  @map("expires_at")
+
+  @@index([expiresAt])
+  @@map("idempotency_keys")
+}
+
+model AuditLog {
+  id            String   @id @default(uuid())
+  actorId       String?  @map("actor_id")
+  action        String
+  aggregateType String   @map("aggregate_type")
+  aggregateId   String   @map("aggregate_id")
+  metadata      Json?
+  requestId     String?  @map("request_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([aggregateType, aggregateId])
+  @@index([actorId, createdAt])
+  @@map("audit_logs")
+}
+
+model Setting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("settings")
+}

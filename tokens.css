@@ -1,0 +1,138 @@
+/* Hallmark · genre: modern-minimal · macrostructure: Workbench · theme: custom (Skyline)
+ * vibe: "fintech biru cerah, ramah lintas generasi, bukan alat gelap khusus teknis"
+ * paper: oklch(96.5% 0.012 254) · accent: oklch(54% 0.19 254) vivid-blue
+ * display: Montserrat · body: Montserrat · mono: dicabut, disamakan ke body
+ * axes: light / grotesk-sans / cool
+ * enrichment: E1 clipped-edge ilustrasi pengguna + light wash · nav: N3 side-rail (glass) · footer: Ft2 inline
+ * pre-emit critique: P5 H4 E4 S4 R4 V5
+ * source of truth: design.md — every colour and font in this project references a token below
+ *
+ * RIWAYAT: proyek ini sebelumnya bertema gelap+oranye ("Ember"). Diganti total
+ * atas permintaan eksplisit pengguna — target audiens lintas generasi
+ * (Gen Z/milenial/boomer) merasa tema gelap terlalu suram/niche. Setiap nilai
+ * di bawah dihitung ulang dan divalidasi kontras terhadap kanvas TERANG,
+ * bukan sekadar dibalik dari versi gelap.
+ */
+
+:root {
+  color-scheme: light;
+
+  /* ── Surfaces — biru cerah, senada referensi pengguna ───────────────────── */
+  --color-paper:      oklch(96.5% 0.012 254);  /* #eef4fc  kanvas */
+  --color-paper-2:    oklch(99.0% 0.006 254);  /* #f9fcff  kartu */
+  --color-paper-3:    oklch(92.5% 0.020 254);  /* #dde7f4  hover, elevated */
+  --color-rule:       oklch(86.5% 0.022 254);  /* #c9d4e1  batas */
+  --color-muted:      oklch(48.0% 0.035 254);  /* #505f71  label, sumbu — AA 5,90:1 */
+  --color-ink-2:      oklch(34.0% 0.045 254);  /* #27394f  teks sekunder — AA 10,62:1 */
+  --color-ink:        oklch(18.0% 0.035 254);  /* #061221  teks utama — AA 17,00:1 */
+
+  /* ── Aksen tunggal, biru cerah ────────────────────────────────────────────
+     Satu hue. Menempati ≤3% viewport: nav aktif, cincin fokus, tombol primer,
+     penanda kecil. Digelapkan ke 54% (bukan 56%+) khusus supaya AMAN dipakai
+     sebagai warna TEKS juga (≥4,5:1), bukan cuma sebagai isian tombol. */
+  --color-accent:      oklch(54.0% 0.190 254);  /* #006cd8 — AA 4,60:1 */
+  --color-accent-hi:   oklch(48.0% 0.205 254);  /* hover, lebih dalam */
+  --color-accent-ink:  oklch(99.0% 0.005 254);  /* teks di atas isian aksen */
+  --color-accent-wash: oklch(91.0% 0.055 254);  /* #c9e4ff  baris nav aktif */
+  --color-focus:       oklch(54.0% 0.190 254);
+  --color-bloom:       oklch(82.0% 0.060 254);  /* inti wash biru lembut */
+
+  /* ── Status ───────────────────────────────────────────────────────────────
+     DIHITUNG ULANG untuk kanvas terang — nilai lama (dituning untuk kanvas
+     gelap) jatuh sampai ~1,7:1 di sini, nyaris tak terlihat. Tidak pernah
+     dipinjam sebagai warna seri. Selalu berpasangan ikon + label. */
+  --color-good:     #17810d;
+  --color-warning:  #a45d00;
+  --color-serious:  #c73e1a;
+  --color-critical: #ce3537;
+
+  /* ── Seri visualisasi data ────────────────────────────────────────────────
+     Urutan tetap — urutan ITU mekanisme keamanan CVD-nya. Jangan diacak.
+     Divalidasi ULANG terhadap kanvas terang baru (bukan diasumsikan tetap
+     lulus): CVD tetap PASS, tapi 4 dari 5 slot kini < 3:1 vs kanvas —
+     label langsung / tampilan tabel WAJIB di setiap grafik, bukan opsional. */
+  --viz-1: #2a78d6;
+  --viz-2: #eb6834;
+  --viz-3: #1baf7a;
+  --viz-4: #eda100;
+  --viz-5: #e87ba4;
+  --viz-other: var(--color-muted);
+
+  /* ── Tipografi — 3 famili, plafon 2+1 ─────────────────────────────────────
+     Mono memegang SATU peran: register numerik & identifier. */
+  --font-display: "Montserrat", ui-sans-serif, sans-serif;
+  --font-body:    "Montserrat", ui-sans-serif, system-ui, sans-serif;
+  /* JetBrains Mono DICABUT dari sini — bukan cuma diganti di satu tempat.
+     Nilainya sengaja disamakan dengan --font-body (satu titik, menjangkau
+     SEMUA var(--font-mono) di seluruh kode sekaligus: label, kode transaksi,
+     nominal, sumbu grafik) supaya tidak ada satu tempat pun yang terlewat.
+     Lihat design.md § Typography untuk alasan lengkapnya. */
+  --font-mono:    var(--font-body);
+
+  --text-xs:      0.75rem;
+  --text-sm:      0.8125rem;
+  --text-base:    0.875rem;
+  --text-md:      1rem;
+  --text-lg:      1.25rem;
+  --text-xl:      1.5625rem;
+  --text-2xl:     1.953rem;
+  --text-display: 3rem;
+
+  --leading-display: 1.08;
+  --leading-tight:   1.3;
+  --leading-body:    1.55;
+  --tracking-display: -0.02em;
+  --tracking-mono:    -0.01em;
+  --weight-body: 400;
+
+  /* ── Spasi — skala 4pt ──────────────────────────────────────────────────── */
+  --space-3xs: 2px;   --space-2xs: 4px;   --space-xs:  8px;
+  --space-sm:  12px;  --space-md:  16px;  --space-lg:  24px;
+  --space-xl:  32px;  --space-2xl: 48px;  --space-3xl: 64px;
+
+  /* ── Radius ─────────────────────────────────────────────────────────────── */
+  --radius-control: 8px;
+  --radius-card:    14px;
+  --radius-pill:    9999px;
+  --radius-hero:    28px;   /* kartu besar yang berdiri sendiri, mis. login */
+
+  --rule-hairline: 1px;
+  --rule-strong:   2px;
+
+  --ease-out:    cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in:     cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-fast: 120ms;
+  --dur-base: 180ms;
+  --dur-slow: 240ms;
+
+  /* Di kanvas terang, elevasi cukup dengan bayangan tipis — jauh lebih
+     rendah alpha-nya dari versi gelap sebelumnya (kanvas terang "berteriak"
+     kalau bayangannya digelapkan sama seperti tema gelap). */
+  --shadow-card:  0 1px 2px color-mix(in oklch, var(--color-ink) 8%, transparent);
+  --shadow-lift:  0 8px 24px color-mix(in oklch, var(--color-ink) 12%, transparent);
+  --shadow-popup: 0 16px 40px color-mix(in oklch, var(--color-ink) 16%, transparent);
+
+  --z-base: 0; --z-sticky: 10; --z-dropdown: 20;
+  --z-overlay: 30; --z-modal: 40; --z-toast: 50;
+}
+
+/* Tema ini berkomitmen pada satu tampilan: TERANG. Tidak ada varian gelap —
+   arah baru ini menggantikan tema Ember sepenuhnya demi jangkauan lintas
+   generasi (Gen Z, milenial, boomer sekaligus), bukan sekadar mode alternatif. */
+
+.tabular, table td, table th { font-variant-numeric: tabular-nums; }
+
+/* Cincin fokus muncul seketika — tidak pernah ditransisikan. */
+:focus-visible {
+  outline: var(--rule-strong) solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 150ms !important;
+  }
+}

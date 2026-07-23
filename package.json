@@ -1,0 +1,23 @@
+{
+  "name": "profit-sharing-platform",
+  "private": true,
+  "packageManager": "pnpm@10.34.1",
+  "engines": { "node": ">=20.9.0" },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose down",
+    "db:migrate": "pnpm --filter @psp/api exec prisma migrate dev",
+    "db:seed": "pnpm --filter @psp/api exec tsx prisma/seed.ts",
+    "db:studio": "pnpm --filter @psp/api exec prisma studio"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.5",
+    "typescript": "^5.7.3",
+    "prettier": "^3.4.2"
+  }
+}

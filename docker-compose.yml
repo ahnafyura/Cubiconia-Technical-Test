@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: psp-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: psp
+      POSTGRES_PASSWORD: psp_dev_password
+      POSTGRES_DB: psp
+    ports:
+      - "5433:5432"
+    volumes:
+      - psp-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U psp -d psp"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  psp-pgdata:

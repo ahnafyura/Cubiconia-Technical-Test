@@ -1,0 +1,25 @@
+[
+  {
+    "date": "2026-07-22",
+    "genre": "atmospheric",
+    "macrostructure": "Workbench",
+    "theme": "custom",
+    "theme_axes": "dark / grotesk-sans / warm",
+    "vibe": "instrumen keuangan yang menyala di ruang gelap",
+    "enrichment": "E7 two-stop bloom + grain (Tier A)",
+    "nav": "N3 side-rail",
+    "footer": "Ft2 inline single line",
+    "brief": "Redesign atas umpan balik pengguna: kanvas gelap + aksen oranye hangat. Arah gaya dari referensi visual (template berbayar) — DNA gaya diambil, struktur TIDAK dikloning."
+  },
+  {
+    "date": "2026-07-22",
+    "genre": "modern-minimal",
+    "macrostructure": "Workbench",
+    "theme": "Cobalt",
+    "theme_axes": "light / grotesk-sans / cool",
+    "enrichment": "none",
+    "nav": "N3 side-rail + N13 inline cmdk-pill",
+    "footer": "Ft2 inline single line",
+    "brief": "Profit-sharing platform · composable rule engine + investor ledger + directory (admin app, not a landing page)"
+  }
+]

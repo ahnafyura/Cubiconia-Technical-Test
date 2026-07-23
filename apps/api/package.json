@@ -1,0 +1,47 @@
+{
+  "name": "@psp/api",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "nest start --watch",
+    "build": "nest build",
+    "start": "node dist/main",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.0.11",
+    "@nestjs/config": "^4.0.1",
+    "@nestjs/core": "^11.0.11",
+    "@nestjs/cqrs": "^11.0.1",
+    "@nestjs/jwt": "^11.0.0",
+    "@nestjs/passport": "^11.0.5",
+    "@nestjs/platform-express": "^11.0.11",
+    "@nestjs/schedule": "^5.0.1",
+    "@nestjs/swagger": "^11.0.6",
+    "@prisma/client": "^6.4.1",
+    "argon2": "^0.41.1",
+    "passport": "^0.7.0",
+    "passport-jwt": "^4.0.1",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.1",
+    "zod": "^3.24.2",
+    "@psp/contracts": "workspace:*"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^11.0.5",
+    "@nestjs/schematics": "^11.0.2",
+    "@nestjs/testing": "^11.0.11",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.13.5",
+    "@types/passport-jwt": "^4.0.1",
+    "prisma": "^6.4.1",
+    "tsx": "^4.19.3",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.7"
+  }
+}
