@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, NotFoundException, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, NotFoundException, Param, Post, Put, Query } from '@nestjs/common';
 import { z } from 'zod';
 import { PrismaService } from '@infra/database/prisma.service';
 import { RuleService } from '../application/rule.service';
@@ -6,6 +6,9 @@ import { DistributionService } from '../application/distribution.service';
 import { RuleBasis } from '../domain/types';
 import { RequirePermission } from '@shared/decorators/require-permission.decorator';
 import { CurrentUser } from '@shared/decorators/current-user.decorator';
+import { Idempotent } from '@shared/idempotency/idempotent.decorator';
+import { SettingsService } from '@shared/settings/settings.service';
+import { AuditService } from '@shared/audit/audit.service';
 import type { Principal } from '@shared/guards/jwt-auth.guard';
 
 const ShareSchema = z.object({ investorId: z.string().uuid(), basisPoints: z.number().int().positive() });
@@ -38,6 +41,8 @@ export class ProfitSharingController {
     private readonly prisma: PrismaService,
     private readonly rules: RuleService,
     private readonly distribution: DistributionService,
+    private readonly settings: SettingsService,
+    private readonly audit: AuditService,
   ) {}
 
   // ── Aturan ───────────────────────────────────────────────────────────────
@@ -54,26 +59,34 @@ export class ProfitSharingController {
 
   @Post('profit-rules')
   @RequirePermission('profit_rule:create')
+  @Idempotent()
   async createRule(@Body() body: unknown, @CurrentUser() user: Principal) {
     return { data: await this.rules.create(RuleSchema.parse(body), user.sub) };
   }
 
   @Post('profit-rules/:id/supersede')
   @RequirePermission('profit_rule:create')
+  @Idempotent()
   async supersedeRule(@Param('id') id: string, @Body() body: unknown, @CurrentUser() user: Principal) {
     return { data: await this.rules.supersede(id, RuleSchema.parse(body), user.sub) };
   }
 
   @Post('profit-rules/:id/activate')
   @RequirePermission('profit_rule:create')
-  async activateRule(@Param('id') id: string) {
-    return { data: await this.rules.activate(id) };
+  async activateRule(@Param('id') id: string, @CurrentUser() user: Principal) {
+    return { data: await this.rules.activate(id, user.sub) };
   }
 
   @Delete('profit-rules/:id')
   @RequirePermission('profit_rule:create')
-  async deleteRule(@Param('id') id: string) {
-    return { data: await this.rules.softDelete(id) };
+  async deleteRule(@Param('id') id: string, @CurrentUser() user: Principal) {
+    return { data: await this.rules.softDelete(id, user.sub) };
+  }
+
+  /** Linimasa: seluruh rantai versi sebuah aturan, dari yang pertama sampai terbaru. */
+  @Get('profit-rules/:id/history')
+  async ruleHistory(@Param('id') id: string) {
+    return { data: await this.rules.history(id) };
   }
 
   /**
@@ -167,6 +180,8 @@ export class ProfitSharingController {
             entries: { include: { investor: { select: { id: true, name: true, code: true } } } },
           },
         },
+        reversalOf: { select: { id: true, code: true } },
+        reversedBy: { select: { id: true, code: true, status: true } },
       },
     });
     if (!dist) return { data: null };
@@ -209,6 +224,20 @@ export class ProfitSharingController {
   async reject(@Param('id') id: string, @Body() body: { reason?: string }, @CurrentUser() user: Principal) {
     await this.distribution.reject(id, user.sub, body?.reason ?? 'Tanpa alasan');
     return { data: { id, status: 'REJECTED' } };
+  }
+
+  /**
+   * Jawaban langsung studi kasus §6: "transaksi dibatalkan/refund setelah
+   * distribusi jalan". Izin terpisah dari `distribution:approve` dengan
+   * sengaja — membalik uang yang sudah cair adalah tindakan yang lebih
+   * berat daripada menyetujui, layak punya pagar sendiri.
+   */
+  @Post('distributions/:id/reverse')
+  @RequirePermission('distribution:reverse')
+  @Idempotent()
+  async reverseDistribution(@Param('id') id: string, @Body() body: { reason?: string }, @CurrentUser() user: Principal) {
+    const reversal = await this.distribution.reverse(id, user.sub, body?.reason ?? '');
+    return { data: reversal };
   }
 
   // ── Investor — akses diri sendiri (self-service, tanpa permission gate) ──
@@ -315,7 +344,11 @@ export class ProfitSharingController {
       this.prisma.profitDistribution.count({ where: { OR: [{ isFallback: true }, { overAllocated: true }] } }),
       this.prisma.transaction.findMany({
         where: { status: 'COMPLETED' },
-        include: { product: { select: { name: true } }, customer: { select: { name: true } }, distribution: { select: { status: true } } },
+        include: {
+          product: { select: { name: true } },
+          customer: { select: { name: true } },
+          distributions: { where: { reversalOfId: null }, select: { status: true } },
+        },
         orderBy: { completedAt: 'desc' },
         take: 5,
       }),
@@ -332,10 +365,50 @@ export class ProfitSharingController {
         transactionCount: agg._count,
         pendingApproval: pending,
         flagged,
-        recent,
+        recent: recent.map(({ distributions, ...t }) => ({ ...t, distribution: distributions[0] ?? null })),
         trend,
         byInvestor,
       },
     };
+  }
+
+  // ── Pengaturan ────────────────────────────────────────────────────────────
+
+  @Get('settings/approval-threshold')
+  @RequirePermission('settings:manage')
+  async getApprovalThreshold() {
+    return { data: { thresholdIdr: (await this.settings.getApprovalThresholdIdr()).toString() } };
+  }
+
+  @Put('settings/approval-threshold')
+  @RequirePermission('settings:manage')
+  async setApprovalThreshold(@Body() body: unknown, @CurrentUser() user: Principal) {
+    const { thresholdIdr } = z.object({ thresholdIdr: z.string().regex(/^\d+$/) }).parse(body);
+    await this.settings.setApprovalThresholdIdr(BigInt(thresholdIdr));
+    await this.audit.log({
+      actorId: user.sub,
+      action: 'settings.approval_threshold.update',
+      aggregateType: 'Setting',
+      aggregateId: 'approval_threshold_idr',
+      metadata: { thresholdIdr },
+    });
+    return { data: { thresholdIdr } };
+  }
+
+  // ── Audit log ─────────────────────────────────────────────────────────────
+
+  @Get('audit-logs')
+  @RequirePermission('audit:read')
+  async listAuditLogs(
+    @Query('aggregateType') aggregateType?: string,
+    @Query('take') take?: string,
+    @Query('skip') skip?: string,
+  ) {
+    const result = await this.audit.list({
+      aggregateType,
+      take: take ? Number(take) : undefined,
+      skip: skip ? Number(skip) : undefined,
+    });
+    return { data: result.items, meta: { total: result.total } };
   }
 }

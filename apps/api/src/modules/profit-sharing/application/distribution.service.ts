@@ -1,6 +1,8 @@
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '@infra/database/prisma.service';
 import { Money } from '@shared/domain/money';
+import { SettingsService } from '@shared/settings/settings.service';
+import { AuditService } from '@shared/audit/audit.service';
 import { DistributionPipeline, snapshotRule } from '../domain/distribution-pipeline';
 import { DistributionResult, RuleBasis, TransactionContext } from '../domain/types';
 import { RuleRepository } from '../infrastructure/rule.repository';
@@ -16,6 +18,8 @@ export class DistributionService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly rules: RuleRepository,
+    private readonly settings: SettingsService,
+    private readonly audit: AuditService,
   ) {}
 
   /**
@@ -41,8 +45,13 @@ export class DistributionService {
    * hanya pernah punya satu distribusi, bahkan bila event terkirim ganda.
    */
   async distribute(transactionId: string): Promise<{ id: string; code: string; created: boolean }> {
-    const existing = await this.prisma.profitDistribution.findUnique({
-      where: { transactionId },
+    // findFirst, bukan findUnique — transactionId sendiri bukan lagi unique
+    // penuh di skema Prisma (unique-nya PARTIAL, cuma utk baris reversalOfId
+    // IS NULL, lihat migrasi 20260724000000). reversalOfId: null persis
+    // menangkap "distribusi ASLI transaksi ini", yang tetap dijamin tunggal
+    // oleh partial unique index itu.
+    const existing = await this.prisma.profitDistribution.findFirst({
+      where: { transactionId, reversalOfId: null },
       select: { id: true, code: true },
     });
     if (existing) {
@@ -74,10 +83,9 @@ export class DistributionService {
 
     // Ambang batas approval (A5): nominal kecil final otomatis, nominal besar
     // wajib ditinjau. Distribusi bermasalah selalu masuk tinjauan apa pun nilainya.
-    const needsReview =
-      result.totalDistributed.value >= env.APPROVAL_THRESHOLD_IDR ||
-      result.isFallback ||
-      result.overAllocated;
+    // Ambangnya sendiri dapat diubah admin lewat /settings, env cuma nilai awal.
+    const threshold = await this.settings.getApprovalThresholdIdr();
+    const needsReview = result.totalDistributed.value >= threshold || result.isFallback || result.overAllocated;
 
     const code = await this.nextCode();
 
@@ -184,6 +192,86 @@ export class DistributionService {
       where: { id: distributionId },
       data: { status: 'REJECTED', approvedBy: actorId, approvedAt: new Date(), rejectedReason: reason },
     });
+  }
+
+  /**
+   * Batalkan sebuah distribusi yang SUDAH cair (SETTLED) — jawaban langsung
+   * atas edge case studi kasus "transaksi dibatalkan/refund setelah distribusi
+   * jalan". TIDAK menghapus atau mengedit entry lama (trigger database
+   * melarangnya juga) — membuat distribusi REVERSAL baru yang menegasikan
+   * setiap baris ledger asli, ditautkan lewat `reversalOfId`. Investor melihat
+   * dua mutasi yang saling meniadakan di riwayatnya, bukan angka yang
+   * tiba-tiba hilang.
+   */
+  async reverse(distributionId: string, actorId: string, reason: string): Promise<{ id: string; code: string }> {
+    const original = await this.prisma.profitDistribution.findUnique({
+      where: { id: distributionId },
+      include: { ledgerEntries: true, transaction: { select: { id: true } }, reversedBy: { select: { id: true } } },
+    });
+    if (!original) throw new NotFoundException('Distribusi tidak ditemukan');
+    if (original.status !== 'SETTLED') {
+      throw new BadRequestException('Hanya distribusi SETTLED yang bisa dibalik — belum cair, tidak ada yang perlu dinegasikan');
+    }
+    if (original.reversedBy) {
+      throw new BadRequestException('Distribusi ini sudah pernah dibalik sebelumnya');
+    }
+    if (!reason.trim()) throw new BadRequestException('Alasan pembalikan wajib diisi');
+
+    const code = await this.nextCode();
+
+    const created = await this.prisma.$transaction(async (tx) => {
+      const reversal = await tx.profitDistribution.create({
+        data: {
+          code,
+          // Distribusi reversal tidak terikat unique-per-transaction seperti
+          // distribusi biasa — satu transaksi bisa punya banyak koreksi
+          // sepanjang waktu kalau perlu, makanya TIDAK memakai transactionId
+          // yang sama sebagai constraint utama di sini; tautannya lewat
+          // reversalOfId, bukan transactionId.
+          transactionId: original.transactionId,
+          netProfit: -original.netProfit,
+          totalDistributed: -original.totalDistributed,
+          retainedByCompany: -original.retainedByCompany,
+          status: 'REVERSED',
+          reversalOfId: original.id,
+          approvedBy: actorId,
+          approvedAt: new Date(),
+          rejectedReason: reason,
+        },
+        select: { id: true, code: true },
+      });
+
+      for (const entry of original.ledgerEntries) {
+        if (entry.entryType !== 'PROFIT_SHARE') continue;
+        await this.appendLedger(tx, {
+          investorId: entry.investorId,
+          amount: -entry.amount,
+          entryType: 'REVERSAL',
+          distributionId: reversal.id,
+          occurredAt: new Date(),
+          description: `Pembalikan ${original.code}: ${reason}`,
+        });
+      }
+
+      await tx.profitDistribution.update({ where: { id: original.id }, data: { status: 'REVERSED' } });
+      await tx.transaction.update({ where: { id: original.transactionId }, data: { status: 'REFUNDED' } });
+
+      await this.audit.log(
+        {
+          actorId,
+          action: 'distribution.reverse',
+          aggregateType: 'ProfitDistribution',
+          aggregateId: original.id,
+          metadata: { reason, reversalId: reversal.id, reversalCode: reversal.code },
+        },
+        tx,
+      );
+
+      return reversal;
+    });
+
+    this.logger.log(`${original.code} dibalik lewat ${created.code}: ${reason}`);
+    return created;
   }
 
   private async writeLedgerEntries(

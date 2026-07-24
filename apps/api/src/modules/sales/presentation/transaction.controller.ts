@@ -2,6 +2,9 @@ import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { z } from 'zod';
 import { TransactionService } from '../application/transaction.service';
 import { RequirePermission } from '@shared/decorators/require-permission.decorator';
+import { CurrentUser } from '@shared/decorators/current-user.decorator';
+import { Idempotent } from '@shared/idempotency/idempotent.decorator';
+import type { Principal } from '@shared/guards/jwt-auth.guard';
 
 const CreateSchema = z.object({
   productId: z.string().uuid(),
@@ -30,13 +33,15 @@ export class TransactionController {
 
   @Post()
   @RequirePermission('transaction:create')
-  async create(@Body() body: unknown) {
-    return { data: await this.transactions.create(CreateSchema.parse(body)) };
+  @Idempotent()
+  async create(@Body() body: unknown, @CurrentUser() user: Principal) {
+    return { data: await this.transactions.create(CreateSchema.parse(body), user.sub) };
   }
 
   @Post(':id/complete')
   @RequirePermission('transaction:create')
-  async complete(@Param('id') id: string) {
-    return { data: await this.transactions.complete(id) };
+  @Idempotent()
+  async complete(@Param('id') id: string, @CurrentUser() user: Principal) {
+    return { data: await this.transactions.complete(id, user.sub) };
   }
 }

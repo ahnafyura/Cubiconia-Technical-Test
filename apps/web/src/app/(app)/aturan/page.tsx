@@ -65,6 +65,8 @@ export default function RulesPage() {
 }
 
 function RuleList({ rules }: { rules: Rule[] }) {
+  const [historyFor, setHistoryFor] = useState<string | null>(null);
+
   return (
     <div className="stack" style={{ marginTop: 'var(--space-md)' }}>
       {rules.map((r) => {
@@ -108,9 +110,48 @@ function RuleList({ rules }: { rules: Rule[] }) {
                 </span>
               ))}
             </div>
+
+            <button
+              className="btn btn-sm"
+              style={{ marginTop: 'var(--space-sm)' }}
+              onClick={() => setHistoryFor(historyFor === r.id ? null : r.id)}
+            >
+              {historyFor === r.id ? 'Tutup riwayat' : 'Riwayat versi →'}
+            </button>
+            {historyFor === r.id && <RuleHistory ruleId={r.id} />}
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/** Linimasa: seluruh rantai versi aturan ini, dari pertama sampai terbaru —
+ *  jawaban desain untuk "aturan apa yang aktif 3 bulan lalu?" (ux-spec.md §1,
+ *  masalah #3), yang tidak terjawab kalau cuma lihat tag "v2" di kartu. */
+function RuleHistory({ ruleId }: { ruleId: string }) {
+  const [history, setHistory] = useState<{ id: string; version: number; status: string; validFrom: string; validTo: string | null }[] | null>(null);
+
+  useEffect(() => {
+    api<typeof history>(`/profit-rules/${ruleId}/history`).then(setHistory).catch(() => setHistory([]));
+  }, [ruleId]);
+
+  if (!history) return <div style={{ marginTop: 'var(--space-sm)' }}><Skeleton rows={2} /></div>;
+
+  return (
+    <div className="wf-layer" style={{ marginTop: 'var(--space-sm)' }}>
+      {history.map((v, i) => (
+        <div key={v.id} className="row" style={{ padding: '4px 0', gap: 'var(--space-sm)' }}>
+          <span className="num muted" style={{ width: 28 }}>v{v.version}</span>
+          <StatusBadge status={v.status} />
+          <span className="muted" style={{ fontSize: 'var(--text-xs)' }}>
+            {date(v.validFrom)} → {v.validTo ? date(v.validTo) : 'sekarang'}
+          </span>
+          {i === history.length - 1 && v.status === 'ACTIVE' && (
+            <span className="muted" style={{ fontSize: 'var(--text-xs)' }}>← versi terbaru</span>
+          )}
+        </div>
+      ))}
     </div>
   );
 }

@@ -219,7 +219,11 @@ model Transaction {
 
   status              TransactionStatus   @default(DRAFT)
   completedAt         DateTime?           @map("completed_at")
-  distribution        ProfitDistribution? @relation("TransactionDistribution")
+  // Jamak, bukan tunggal — sejak reversal ada, satu transaksi bisa punya
+  // lebih dari satu ProfitDistribution (distribusi asli + reversal-nya).
+  // "Satu transaksi, satu distribusi ASLI" tetap dijamin lewat partial unique
+  // index di migrasi 20260724000000, bukan lewat relasi one-to-one di sini.
+  distributions       ProfitDistribution[] @relation("TransactionDistribution")
 
   createdAt           DateTime            @default(now()) @map("created_at")
   updatedAt           DateTime            @updatedAt @map("updated_at")
@@ -336,9 +340,13 @@ model ProfitDistribution {
   id                String              @id @default(uuid())
   code              String              @unique // DST-2026-0912
 
-  /// UNIQUE = jaminan idempotensi lapisan kedua. Bahkan bila event terkirim
-  /// ganda, database menolak distribusi kedua untuk transaksi yang sama.
-  transactionId     String              @unique @map("transaction_id")
+  /// TIDAK @unique di sini — unique-nya PARTIAL (lihat migrasi
+  /// 20260724000000_reversal_partial_unique): hanya berlaku selama
+  /// reversalOfId IS NULL. Jaminan idempotensi ("satu transaksi cuma boleh
+  /// punya satu distribusi ASLI") tetap sekuat sebelumnya; yang dilonggarkan
+  /// cuma supaya distribusi REVERSAL boleh menunjuk transactionId yang sama
+  /// dengan distribusi yang dibalikkannya.
+  transactionId     String              @map("transaction_id")
   transaction       Transaction         @relation("TransactionDistribution", fields: [transactionId], references: [id])
 
   netProfit         BigInt              @map("net_profit")

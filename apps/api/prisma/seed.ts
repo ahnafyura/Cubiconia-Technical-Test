@@ -45,22 +45,30 @@ const PERMISSIONS = [
   // rute investors/me/* yang menyaring datanya sendiri di server.
   'distribution:read:all',
   'distribution:approve',
+  // Membalik distribusi yang SUDAH cair adalah tindakan lebih berat daripada
+  // menyetujui — sengaja permission terpisah dari distribution:approve.
+  'distribution:reverse',
   'investor:read:any',
   'payout:manage',
   'employee:manage',
   'org_unit:manage',
+  // Kelola produk & pelanggan — bukan cuma admin_keuangan, ops_penjualan juga
+  // butuh ini (lihat catatan di ROLES di bawah).
+  'catalog:manage',
+  'settings:manage',
+  'audit:read',
 ];
 
 const ROLES: Record<string, string[]> = {
   admin_keuangan: PERMISSIONS,
-  // Hanya transaksi — sesuai persona ux-spec.md ("Input transaksi, kelola
-  // produk & pelanggan"). Status "Bagi" per transaksi tetap kelihatan di
-  // /transaksi karena itu ikut transaction:read (embedded di endpoint
-  // transaksi sendiri), BUKAN dari distribution:read:all — jadi melepas izin
-  // ini tidak menghilangkan informasi yang mereka memang butuh lihat.
-  // Dashboard finansial perusahaan dan rincian per-investor bukan urusan
-  // peran ini.
-  ops_penjualan: ['transaction:create', 'transaction:read'],
+  // Persona ux-spec.md eksplisit: "Input transaksi, kelola produk & pelanggan"
+  // — makanya catalog:manage ikut di sini, bukan cuma transaction:*. Status
+  // "Bagi" per transaksi tetap kelihatan di /transaksi karena itu ikut
+  // transaction:read (embedded di endpoint transaksi sendiri), BUKAN dari
+  // distribution:read:all — jadi melepas izin itu tidak menghilangkan
+  // informasi yang mereka memang butuh lihat. Dashboard finansial perusahaan
+  // dan rincian per-investor tetap bukan urusan peran ini.
+  ops_penjualan: ['transaction:create', 'transaction:read', 'catalog:manage'],
   admin_direktori: ['employee:manage', 'org_unit:manage'],
   // Investor tidak dapat permission admin apa pun. Akses mereka datang dari
   // rute investors/me/* yang tidak dipagari @RequirePermission sama sekali —

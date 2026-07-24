@@ -37,6 +37,8 @@ Buka **http://localhost:3100** — kolom login sudah terisi.
 
 4. **Uji izin** → keluar, masuk sebagai `sales@contoh.id`, coba setujui distribusi. Ditolak dengan `Butuh izin: distribution:approve`.
 
+   4b. **Refund/reversal** → masih sebagai admin, buka distribusi `SETTLED` mana pun → **Balik distribusi ini**. Membuat distribusi pembalik (nominal negatif dengan sengaja) yang menegasikan setiap mutasi ledger tanpa menghapus riwayatnya — transaksi asal berubah jadi `REFUNDED`.
+
 5. **Portal investor** → keluar, masuk sebagai `investor1@contoh.id`. Diarahkan otomatis ke `/portal` (bukan shell admin) — saldo, tren, dan mutasi yang tampil **hanya** milik investor ini; klik "kenapa segini?" pada satu mutasi untuk lihat rincian lapisan perhitungannya, lalu unduh resi PDF versi investor (cuma memuat porsinya sendiri, tidak ada data investor lain di dalamnya).
 
 6. **Direktori & Bagan** → dari akun admin/HR, buka **Direktori → Bagan**. Struktur organisasi digambar sebagai pohon dengan garis penghubung melengkung berwarna per cabang divisi; klik kartu mana pun untuk melihat karyawan sungguhan di unit itu.
@@ -74,6 +76,10 @@ Buka **http://localhost:3100** — kolom login sudah terisi.
 
 **Satu sumber kebenaran untuk navigasi & izin.** `lib/nav.ts` dan `lib/permissions.tsx` di frontend adalah satu-satunya tempat aturan "siapa boleh lihat apa" didefinisikan, dipakai baik oleh halaman login (menentukan tujuan pertama) maupun shell admin (render sidebar + jaga halaman). Ini perbaikan langsung dari bug nyata yang ditemukan mid-pengembangan: logika itu sebelumnya diduplikasi di dua tempat dan sempat membuat peran `ops_penjualan` over-privileged sebelum ketahuan.
 
+**Koreksi lewat reversal, bukan edit atau hapus.** Refund setelah bagi hasil cair membuat distribusi pembalik baru (`reversalOfId`), bukan mengubah baris lama — trigger database melarangnya juga. Ledger tetap bisa direkonsiliasi kapan saja karena tidak ada mutasi yang pernah hilang, cuma dinegasikan secara eksplisit.
+
+**Idempotency-Key di endpoint yang mengubah uang.** `POST /transactions` dan `POST /profit-rules` menerima header `Idempotency-Key` — permintaan kedua dengan key yang sama mengembalikan hasil pertama tanpa menjalankan handler lagi, jadi klik ganda atau retry jaringan tidak pernah membuat efek dua kali.
+
 ## Tes
 
 ```bash
@@ -84,9 +90,11 @@ cd apps/api && pnpm exec vitest run
 
 ## Status
 
-Sudah jalan: fondasi, skema, pipeline bagi hasil, outbox, auth + RBAC, approval, ledger, layar admin lengkap (dashboard, transaksi, aturan, distribusi, direktori karyawan + bagan organisasi interaktif), portal investor penuh (ringkasan, tren, mutasi, *explain* per distribusi), resi PDF (versi admin & investor, privasi terjaga per peran), dan tema visual "Skyline" (redesign penuh dari draf tema gelap awal, disesuaikan lewat putaran umpan balik pengguna asli — lihat [`summary-context.md`](./summary-context.md) untuk kronologinya).
+Sudah jalan: fondasi, skema, pipeline bagi hasil, outbox, auth + RBAC, approval, ledger, reversal/refund, Idempotency-Key, audit log, pengaturan ambang approval, layar admin lengkap (dashboard, transaksi + form transaksi baru, katalog, aturan + linimasa riwayat versi, simulator mandiri, distribusi, investor, direktori karyawan + bagan organisasi interaktif), portal investor penuh (ringkasan, tren, mutasi, *explain* per distribusi), resi PDF (versi admin & investor, privasi terjaga per peran), dan tema visual "Skyline" (redesign penuh dari draf tema gelap awal, disesuaikan lewat putaran umpan balik pengguna asli — lihat [`summary-context.md`](./summary-context.md) untuk kronologinya).
 
 Belum: pencairan periodik (`PayoutBatch` sudah ada di skema), sinkronisasi IdP, dan deployment.
+
+> Riwayat lengkap: sistem ini sempat diaudit terhadap `study-case.md`/`ux-spec.md` dan ditemukan 8 kesenjangan nyata (form transaksi tidak ada, reversal tidak ada, dst.) — semuanya sudah ditutup, lihat `summary-context.md` §11 untuk kronologi audit dan penutupannya, termasuk bottleneck skema (`transactionId` unique) yang baru ketahuan saat reversal benar-benar diimplementasikan.
 
 ## Konteks lebih dalam
 

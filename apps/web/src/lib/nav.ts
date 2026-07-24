@@ -1,5 +1,8 @@
 import type { LucideIcon } from 'lucide-react';
-import { LayoutDashboard, Receipt, Layers, Share2, Users, Network } from 'lucide-react';
+import {
+  LayoutDashboard, Receipt, Layers, Share2, Users, Network,
+  Package, FlaskConical, Landmark, ScrollText, SlidersHorizontal,
+} from 'lucide-react';
 
 export interface NavItem {
   href: string;
@@ -24,14 +27,21 @@ export const NAV: { group: string; items: NavItem[] }[] = [
   { group: 'Operasional', items: [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'distribution:read:all' },
     { href: '/transaksi', label: 'Transaksi', icon: Receipt, permission: 'transaction:read' },
+    { href: '/katalog', label: 'Katalog', icon: Package, permission: 'catalog:manage' },
   ]},
   { group: 'Bagi Hasil', items: [
     { href: '/aturan', label: 'Aturan', icon: Layers, permission: 'profit_rule:read' },
     { href: '/distribusi', label: 'Distribusi', icon: Share2, permission: 'distribution:read:all', matchPrefix: true },
+    { href: '/simulator', label: 'Simulator', icon: FlaskConical, permission: 'profit_rule:read' },
+    { href: '/investor', label: 'Investor', icon: Landmark, permission: 'investor:read:any' },
   ]},
   { group: 'Direktori', items: [
     { href: '/direktori', label: 'Karyawan', icon: Users, permission: 'employee:manage' },
     { href: '/direktori/bagan', label: 'Bagan', icon: Network, permission: 'employee:manage' },
+  ]},
+  { group: 'Sistem', items: [
+    { href: '/audit', label: 'Audit Log', icon: ScrollText, permission: 'audit:read' },
+    { href: '/pengaturan', label: 'Pengaturan', icon: SlidersHorizontal, permission: 'settings:manage' },
   ]},
 ];
 

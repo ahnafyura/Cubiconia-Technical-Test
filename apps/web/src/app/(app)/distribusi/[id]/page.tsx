@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { api } from '@/lib/api';
+import { api, apiIdempotent } from '@/lib/api';
 import { Flag, Money, Skeleton, StatusBadge } from '@/components/ui';
 import { DistributionWaterfall, WaterfallData } from '@/components/waterfall';
 import { date } from '@/lib/format';
@@ -13,6 +13,8 @@ import { DownloadPdfButton } from '@/components/download-pdf-button';
 interface Detail {
   id: string; code: string; status: string; netProfit: string; totalDistributed: string;
   retainedByCompany: string; isFallback: boolean; overAllocated: boolean; distributedAt: string;
+  reversalOf: { id: string; code: string } | null;
+  reversedBy: { id: string; code: string; status: string } | null;
   transaction: {
     code: string; revenue: string; productionCostTotal: string; quantity: number;
     product: { name: string; category: string }; customer: { name: string };
@@ -33,6 +35,9 @@ export default function DistributionDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const { has } = usePermissions();
   const canApprove = has('distribution:approve');
+  const canReverse = has('distribution:reverse');
+  const [reversing, setReversing] = useState(false);
+  const [reverseReason, setReverseReason] = useState('');
 
   const load = useCallback(() => { api<Detail>(`/distributions/${id}`).then(setD).catch(() => {}); }, [id]);
   useEffect(load, [load]);
@@ -82,6 +87,21 @@ export default function DistributionDetailPage() {
     } finally { setBusy(false); }
   }
 
+  async function reverse() {
+    if (!reverseReason.trim()) return;
+    setBusy(true); setError(null);
+    try {
+      await apiIdempotent(`/distributions/${id}/reverse`, {
+        method: 'POST',
+        body: JSON.stringify({ reason: reverseReason }),
+      });
+      setReversing(false);
+      load();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally { setBusy(false); }
+  }
+
   return (
     <>
       <div className="page-head">
@@ -107,6 +127,18 @@ export default function DistributionDetailPage() {
         </div>
       </div>
 
+      {d.reversalOf && (
+        <div className="alert s-critical" role="status">
+          <span>Ini adalah distribusi pembalik dari <strong>{d.reversalOf.code}</strong> — nominalnya negatif dengan sengaja, menegasikan distribusi aslinya.</span>
+          <Link className="btn btn-sm" href={`/distribusi/${d.reversalOf.id}`}>Lihat distribusi asli →</Link>
+        </div>
+      )}
+      {d.reversedBy && (
+        <div className="alert s-critical" role="status">
+          <span>Distribusi ini sudah dibalik lewat <strong>{d.reversedBy.code}</strong> — ledger investor sudah dikoreksi.</span>
+          <Link className="btn btn-sm" href={`/distribusi/${d.reversedBy.id}`}>Lihat pembaliknya →</Link>
+        </div>
+      )}
       {d.isFallback && (
         <div className="alert s-warning" role="status">
           <span>Tidak ada aturan yang cocok. Seluruh laba ditahan perusahaan dan perlu ditinjau.</span>
@@ -190,6 +222,40 @@ export default function DistributionDetailPage() {
           {d.status === 'PENDING_APPROVAL' && !canApprove && (
             <div className="alert s-warning" role="status" style={{ marginBottom: 0 }}>
               <span>Menunggu persetujuan admin keuangan.</span>
+            </div>
+          )}
+
+          {/* Hanya distribusi yang SUDAH cair (SETTLED) dan belum pernah
+              dibalik yang bisa dibalik — jawaban langsung studi kasus §6
+              "transaksi dibatalkan/refund setelah distribusi jalan". */}
+          {d.status === 'SETTLED' && !d.reversedBy && canReverse && (
+            <div className="card">
+              <h2 style={{ fontSize: 'var(--text-md)' }}>Pembalikan</h2>
+              {!reversing ? (
+                <>
+                  <p className="muted" style={{ fontSize: 'var(--text-sm)', margin: 'var(--space-xs) 0 var(--space-md)' }}>
+                    Untuk transaksi yang dibatalkan/refund setelah bagi hasil cair. Membuat
+                    distribusi pembalik yang menegasikan setiap mutasi ledger, tanpa menghapus
+                    riwayatnya.
+                  </p>
+                  <button className="btn btn-danger" onClick={() => setReversing(true)}>Balik distribusi ini</button>
+                </>
+              ) : (
+                <>
+                  <div className="field">
+                    <label htmlFor="reverse-reason">Alasan pembalikan (wajib)</label>
+                    <input id="reverse-reason" className="input" value={reverseReason}
+                      onChange={(e) => setReverseReason(e.target.value)} placeholder="Pelanggan minta refund…" />
+                  </div>
+                  {error && <div className="alert s-critical" role="alert">{error}</div>}
+                  <div className="row">
+                    <button className="btn btn-danger" disabled={busy || !reverseReason.trim()} onClick={reverse}>
+                      {busy ? 'Memproses…' : (<>Konfirmasi balik {d.code}, <Money value={d.totalDistributed} /></>)}
+                    </button>
+                    <button className="btn btn-sm" onClick={() => { setReversing(false); setError(null); }}>Batal</button>
+                  </div>
+                </>
+              )}
             </div>
           )}
 

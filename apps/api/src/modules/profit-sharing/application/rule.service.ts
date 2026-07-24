@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '@infra/database/prisma.service';
+import { AuditService } from '@shared/audit/audit.service';
 import { computeSpecificity } from '../domain/rule-matcher';
 import { RuleBasis } from '../domain/types';
 
@@ -21,7 +22,10 @@ export interface CreateRuleInput {
 
 @Injectable()
 export class RuleService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
+  ) {}
 
   async list(params: { activeAt?: string } = {}) {
     const at = params.activeAt ? new Date(params.activeAt) : undefined;
@@ -61,7 +65,7 @@ export class RuleService {
       throw new BadRequestException('Batas atas laba harus ≥ batas bawah');
     }
 
-    return this.prisma.profitSharingRule.create({
+    const rule = await this.prisma.profitSharingRule.create({
       data: {
         name: input.name,
         description: input.description,
@@ -88,6 +92,41 @@ export class RuleService {
       },
       include: { shares: { include: { investor: true } } },
     });
+    await this.audit.log({ actorId, action: 'profit_rule.create', aggregateType: 'ProfitSharingRule', aggregateId: rule.id });
+    return rule;
+  }
+
+  /**
+   * Riwayat versi lengkap sebuah aturan — bukan cuma tetangga langsung
+   * (`supersededBy`/`supersedes` di `findOne`), tapi seluruh rantai dari
+   * versi PERTAMA sampai versi TERBARU, ditelusuri lewat `supersededById`.
+   * Dipakai layar linimasa: "aturan apa yang aktif 3 bulan lalu?" terjawab
+   * dari sini, bukan dari menebak tanggal.
+   */
+  async history(id: string) {
+    const rule = await this.findOne(id);
+
+    let head = rule;
+    while (head.supersedes) {
+      head = await this.findOne(head.supersedes.id);
+    }
+
+    const chain = [head];
+    let cursor = head;
+    while (cursor.supersededBy) {
+      cursor = await this.findOne(cursor.supersededBy.id);
+      chain.push(cursor);
+    }
+
+    return chain.map((r) => ({
+      id: r.id,
+      name: r.name,
+      version: r.version,
+      status: r.status,
+      validFrom: r.validFrom,
+      validTo: r.validTo,
+      createdAt: r.createdAt,
+    }));
   }
 
   /**
@@ -148,24 +187,39 @@ export class RuleService {
         data: { status: 'SUPERSEDED', validTo: now, supersededById: created.id },
       });
 
+      await this.audit.log(
+        {
+          actorId,
+          action: 'profit_rule.supersede',
+          aggregateType: 'ProfitSharingRule',
+          aggregateId: created.id,
+          metadata: { supersedes: old.id },
+        },
+        tx,
+      );
+
       return created;
     });
   }
 
-  async activate(id: string) {
+  async activate(id: string, actorId: string) {
     const rule = await this.findOne(id);
     if (rule.status !== 'DRAFT') throw new BadRequestException('Hanya aturan DRAFT yang bisa diaktifkan');
     if (rule.shares.length === 0) throw new BadRequestException('Aturan tanpa investor tidak bisa diaktifkan');
-    return this.prisma.profitSharingRule.update({ where: { id }, data: { status: 'ACTIVE' } });
+    const updated = await this.prisma.profitSharingRule.update({ where: { id }, data: { status: 'ACTIVE' } });
+    await this.audit.log({ actorId, action: 'profit_rule.activate', aggregateType: 'ProfitSharingRule', aggregateId: id });
+    return updated;
   }
 
-  async softDelete(id: string) {
+  async softDelete(id: string, actorId: string) {
     const rule = await this.findOne(id);
     if (rule.isSystemDefault) throw new BadRequestException('Aturan cadangan sistem tidak bisa dihapus');
-    return this.prisma.profitSharingRule.update({
+    const updated = await this.prisma.profitSharingRule.update({
       where: { id },
       data: { deletedAt: new Date(), status: 'SUPERSEDED', validTo: new Date() },
     });
+    await this.audit.log({ actorId, action: 'profit_rule.delete', aggregateType: 'ProfitSharingRule', aggregateId: id });
+    return updated;
   }
 
   private validateShares(shares: { investorId: string; basisPoints: number }[]): void {

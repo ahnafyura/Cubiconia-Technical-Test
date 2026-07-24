@@ -31,3 +31,17 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
   return body?.data as T;
 }
+
+/**
+ * Sama seperti api(), tapi menempelkan header Idempotency-Key — dipakai
+ * untuk aksi yang mengubah uang/data sensitif (buat transaksi, buat aturan)
+ * supaya klik ganda atau retry jaringan tidak membuat efek dua kali. Kuncinya
+ * dibuat baru SETIAP PANGGILAN (bukan sekali per form) — itu cukup untuk
+ * kasus paling umum (klik ganda saat tombol belum sempat disabled), karena
+ * backend menolak permintaan kedua dengan key IN_PROGRESS yang sama sebelum
+ * yang pertama selesai.
+ */
+export async function apiIdempotent<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const key = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+  return api<T>(path, { ...init, headers: { ...init.headers, 'Idempotency-Key': key } });
+}
