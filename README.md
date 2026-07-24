@@ -18,7 +18,16 @@ Administrator mengatur aturan bagi hasil. Setiap transaksi yang selesai langsung
 
 </div>
 
-**Daftar isi** · 🚀 [Menjalankan](#menjalankan) · 🗺️ [Alur data](#alur-data) · 🎬 [Demo](#demo) · ✨ [Fitur](#fitur) · 🛡️ [Yang Ada Pada Sistem](#yang-ada-pada-sistem) · 🧪 [Tes](#tes) · 📌 [Status](#status) · 🧠 [Konteks & keputusan desain](#konteks--keputusan-desain)
+**Daftar isi**
+
+- [Menjalankan](#menjalankan)
+- [Alur data](#alur-data)
+- [Demo](#demo)
+- [Fitur](#fitur)
+- [Yang Ada Pada Sistem](#yang-ada-pada-sistem)
+- [Tes](#tes)
+- [Status](#status)
+- [Konteks & keputusan desain](#konteks--keputusan-desain)
 
 ## Menjalankan
 
