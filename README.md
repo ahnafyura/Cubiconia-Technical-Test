@@ -18,7 +18,7 @@ Administrator mengatur aturan bagi hasil. Setiap transaksi yang selesai langsung
 
 </div>
 
-**Daftar isi** · 🚀 [Menjalankan](#menjalankan) · 🗺️ [Alur data](#alur-data) · 🎬 [Alur demo](#alur-demo-5-menit) · ✨ [Fitur](#fitur) · 🛡️ [Yang Ada Pada Sistem](#yang-ada-pada-sistem) · 🧪 [Tes](#tes) · 📌 [Status](#status) · 🧠 [Konteks & keputusan desain](#konteks--keputusan-desain)
+**Daftar isi** · 🚀 [Menjalankan](#menjalankan) · 🗺️ [Alur data](#alur-data) · 🎬 [Demo](#demo) · ✨ [Fitur](#fitur) · 🛡️ [Yang Ada Pada Sistem](#yang-ada-pada-sistem) · 🧪 [Tes](#tes) · 📌 [Status](#status) · 🧠 [Konteks & keputusan desain](#konteks--keputusan-desain)
 
 ## Menjalankan
 
@@ -75,7 +75,7 @@ flowchart LR
     style REV fill:#eb6834,stroke:#b6501f,color:#ffffff
 ```
 
-## Alur demo, 5 menit
+## Demo
 
 1. **Transaksi** → pilih transaksi berstatus *Draf*, klik **Selesaikan** (atau buat baru lewat **+ Transaksi baru**). Distribusi tidak dihitung langsung di sana, event masuk *outbox*, poller mengambilnya beberapa detik kemudian. Refresh, kolom "Bagi hasil" terisi.
 
@@ -153,7 +153,7 @@ cd apps/api && pnpm exec vitest run
 ## Konteks & keputusan desain
 
 <details>
-<summary><strong>Akar masalah, kenapa produk ini berbentuk begini</strong></summary>
+<summary><strong>Latar Belakang</strong></summary>
 <br/>
 
 Studi kasus aslinya cuma satu paragraf. Administrator mengatur aturan bagi hasil, transaksi yang selesai didistribusikan otomatis ke investor. Yang tidak dijawab studi kasus, dan jadi pekerjaan desain sesungguhnya, adalah lima pertanyaan implisit. Apa yang terjadi kalau beberapa aturan berlaku sekaligus di transaksi yang sama? Bagaimana kalau aturan berubah setelah transaksi lama sudah didistribusikan? Uang dihitung dari basis apa saat ada rantai aturan? Siapa yang boleh melihat distribusi siapa? Dan bagaimana meralat distribusi yang sudah cair tanpa berbohong soal riwayatnya?
@@ -163,7 +163,7 @@ Jawaban atas kelima pertanyaan itulah yang membentuk rule engine composable, sna
 </details>
 
 <details>
-<summary><strong>Bottleneck tak terduga yang paling instruktif</strong></summary>
+<summary><strong>Bottleneck yang Diselesaikan</strong></summary>
 <br/>
 
 - **Kolom unik yang diam-diam memblokir pengembalian dana.** `transactionId` di tabel distribusi awalnya `@unique` penuh, secara struktural mustahil punya dua baris distribusi (asli + pengembalian dana) untuk satu transaksi yang sama. Bukan soal kehabisan waktu, konflik skemanya baru kelihatan begitu ada yang benar-benar mencoba menulis kode pengembalian dana. Diperbaiki dengan *partial unique index* (`WHERE reversal_of_id IS NULL`).
@@ -173,7 +173,7 @@ Jawaban atas kelima pertanyaan itulah yang membentuk rule engine composable, sna
 </details>
 
 <details>
-<summary><strong>Kejujuran skop, dalam batas 40 jam</strong></summary>
+<summary><strong>Pertimbangan Scope Sistem</strong></summary>
 <br/>
 
 Beberapa hal sengaja dipangkas karena aman untuk dipangkas, bukan karena kehabisan waktu di ujung. Pencairan periodik dibiarkan sebagai skema siap pakai (`PayoutBatch`) tanpa job scheduler-nya, sinkronisasi identitas eksternal (IdP) diganti auth lokal karena skala studi kasus tidak membutuhkannya, dan deployment production ditinggalkan demi memastikan lima hal yang **tidak boleh dipangkas** benar-benar solid, yaitu kebenaran uang, immutability riwayat, privasi investor, RBAC, dan audit trail.
