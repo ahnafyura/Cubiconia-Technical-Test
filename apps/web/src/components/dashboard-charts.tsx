@@ -87,7 +87,7 @@ export function CompanyTrendChart({ points }: { points: CompanyTrendPoint[] }) {
           <rect key={p.month} x={PAD_LEFT + (i - 0.5) * stepX} y={PAD_TOP} width={stepX || plotW} height={plotH}
             fill="transparent" onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)}
             onFocus={() => setHover(i)} onBlur={() => setHover(null)} tabIndex={0} role="button"
-            aria-label={`${monthLabel(p.month)}: laba bersih ${rp(p.netProfit)}, dibagikan ${rp(p.distributed)}`}
+            aria-label={`${monthLabel(p.month)}, laba bersih ${rp(p.netProfit)}, dibagikan ${rp(p.distributed)}`}
             className="chart-hit" style={{ cursor: 'pointer' }} />
         ))}
 

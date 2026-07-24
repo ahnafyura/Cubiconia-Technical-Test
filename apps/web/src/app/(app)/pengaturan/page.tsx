@@ -52,11 +52,11 @@ export default function PengaturanPage() {
               onChange={(e) => setInput(e.target.value.replace(/\D/g, ''))} />
           </div>
           <p className="muted" style={{ fontSize: 'var(--text-xs)', marginTop: -4, marginBottom: 'var(--space-md)' }}>
-            Nilai saat ini: <Money value={threshold} />
+            Nilai saat ini <Money value={threshold} />
           </p>
 
           {error && <div className="alert s-critical" role="alert">{error}</div>}
-          {saved && <div className="alert s-good" role="status">Tersimpan — berlaku untuk distribusi berikutnya.</div>}
+          {saved && <div className="alert s-good" role="status">Tersimpan, berlaku untuk distribusi berikutnya.</div>}
 
           <button className="btn btn-primary" disabled={saving || input === threshold} onClick={save}>
             {saving ? 'Menyimpan…' : 'Simpan'}

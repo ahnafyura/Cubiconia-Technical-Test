@@ -125,7 +125,7 @@ describe('rantai composable', () => {
     expect(r.retainedByCompany.value).toBe(3_750_000n);
   });
 
-  it('stackable=false menutup rantai — persis perilaku winner-takes-all', () => {
+  it('stackable=false menutup rantai, persis perilaku winner-takes-all', () => {
     const r = pipeline.execute(ctx({ netProfit: 10_000_000n }), [
       rule({ executionOrder: 10, stackable: false, shares: [share('A', 3000)] }),
       rule({ executionOrder: 20, shares: [share('B', 5000)] }), // tidak pernah jalan
@@ -231,7 +231,7 @@ describe('matching kondisi', () => {
 
 // ── janji utama studi kasus ────────────────────────────────────────────────
 
-describe('regresi temporal — janji inti studi kasus', () => {
+describe('regresi temporal, janji inti studi kasus', () => {
   it('mengubah rule setelahnya tidak mengubah hasil distribusi yang sudah jalan', () => {
     const original = rule({ executionOrder: 10, shares: [share('A', 2000), share('B', 1000)] });
 

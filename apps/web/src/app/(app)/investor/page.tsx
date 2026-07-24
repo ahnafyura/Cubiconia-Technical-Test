@@ -73,7 +73,7 @@ function InvestorLedger({ investor }: { investor: Investor }) {
   return (
     <div className="stack">
       <div className="card">
-        <div className="kpi-label">Saldo — {investor.name}</div>
+        <div className="kpi-label">Saldo {investor.name}</div>
         <Money value={data?.balance} size="hero" />
       </div>
 
@@ -90,7 +90,7 @@ function InvestorLedger({ investor }: { investor: Investor }) {
                 <div>
                   <div style={{ fontWeight: 500 }}>{e.description ?? e.entryType}</div>
                   <div className="muted" style={{ fontSize: 'var(--text-xs)' }}>
-                    {e.distribution?.transaction.code ?? e.distribution?.code ?? '—'} · {new Date(e.occurredAt).toLocaleDateString('id-ID')}
+                    {e.distribution?.transaction.code ?? e.distribution?.code ?? '-'} · {new Date(e.occurredAt).toLocaleDateString('id-ID')}
                   </div>
                 </div>
                 <Money value={e.amount} direction={BigInt(e.amount) < 0n ? 'reversal' : 'in'} />

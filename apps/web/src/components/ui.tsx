@@ -49,7 +49,7 @@ export const STATUS: Record<string, { label: string; cls: string }> = {
   PENDING_APPROVAL: { label: 'Menunggu persetujuan', cls: 's-warning' },
   SETTLED: { label: 'Final', cls: 's-good' },
   REJECTED: { label: 'Ditolak', cls: 's-critical' },
-  REVERSED: { label: 'Dibalik', cls: 's-critical' },
+  REVERSED: { label: 'Dikembalikan', cls: 's-critical' },
   ACTIVE: { label: 'Aktif', cls: 's-good' },
   SUPERSEDED: { label: 'Digantikan', cls: 's-muted' },
   INACTIVE: { label: 'Nonaktif', cls: 's-critical' },

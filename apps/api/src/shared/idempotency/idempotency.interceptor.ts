@@ -46,7 +46,7 @@ export class IdempotencyInterceptor implements NestInterceptor {
           if (existing.status === 'COMPLETED') {
             return of(existing.response);
           }
-          throw new ConflictException('Permintaan dengan Idempotency-Key ini masih diproses — coba lagi sesaat lagi');
+          throw new ConflictException('Permintaan dengan Idempotency-Key ini masih diproses, coba lagi sesaat lagi');
         }
 
         return from(

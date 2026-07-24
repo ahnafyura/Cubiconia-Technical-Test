@@ -129,14 +129,14 @@ export default function DistributionDetailPage() {
 
       {d.reversalOf && (
         <div className="alert s-critical" role="status">
-          <span>Ini adalah distribusi pembalik dari <strong>{d.reversalOf.code}</strong> — nominalnya negatif dengan sengaja, menegasikan distribusi aslinya.</span>
+          <span>Ini adalah distribusi pengembalian dana dari <strong>{d.reversalOf.code}</strong>, nominalnya negatif dengan sengaja, menegasikan distribusi aslinya.</span>
           <Link className="btn btn-sm" href={`/distribusi/${d.reversalOf.id}`}>Lihat distribusi asli →</Link>
         </div>
       )}
       {d.reversedBy && (
         <div className="alert s-critical" role="status">
-          <span>Distribusi ini sudah dibalik lewat <strong>{d.reversedBy.code}</strong> — ledger investor sudah dikoreksi.</span>
-          <Link className="btn btn-sm" href={`/distribusi/${d.reversedBy.id}`}>Lihat pembaliknya →</Link>
+          <span>Distribusi ini sudah dikembalikan dananya lewat <strong>{d.reversedBy.code}</strong>, ledger investor sudah dikoreksi.</span>
+          <Link className="btn btn-sm" href={`/distribusi/${d.reversedBy.id}`}>Lihat pengembalian dananya →</Link>
         </div>
       )}
       {d.isFallback && (
@@ -204,7 +204,7 @@ export default function DistributionDetailPage() {
               <p className="muted" style={{ fontSize: 'var(--text-sm)', margin: 'var(--space-xs) 0 var(--space-md)' }}>
                 Menyetujui akan mencatat <Money value={d.totalDistributed} /> ke ledger{' '}
                 {d.summary.length} investor. Tindakan ini tidak dapat dibatalkan, koreksi
-                hanya bisa lewat pembalikan.
+                hanya bisa lewat pengembalian dana.
               </p>
               {error && <div className="alert s-critical" role="alert">{error}</div>}
               <div className="row">
@@ -226,31 +226,32 @@ export default function DistributionDetailPage() {
           )}
 
           {/* Hanya distribusi yang SUDAH cair (SETTLED) dan belum pernah
-              dibalik yang bisa dibalik — jawaban langsung studi kasus §6
-              "transaksi dibatalkan/refund setelah distribusi jalan". */}
+              dikembalikan dananya yang bisa diproses pengembaliannya —
+              jawaban langsung studi kasus §6 "transaksi dibatalkan/refund
+              setelah distribusi jalan". */}
           {d.status === 'SETTLED' && !d.reversedBy && canReverse && (
             <div className="card">
-              <h2 style={{ fontSize: 'var(--text-md)' }}>Pembalikan</h2>
+              <h2 style={{ fontSize: 'var(--text-md)' }}>Pengembalian dana</h2>
               {!reversing ? (
                 <>
                   <p className="muted" style={{ fontSize: 'var(--text-sm)', margin: 'var(--space-xs) 0 var(--space-md)' }}>
                     Untuk transaksi yang dibatalkan/refund setelah bagi hasil cair. Membuat
-                    distribusi pembalik yang menegasikan setiap mutasi ledger, tanpa menghapus
-                    riwayatnya.
+                    pengembalian dana distribusi yang menghubungkan setiap mutasi ledger, tanpa
+                    menghapus riwayatnya.
                   </p>
-                  <button className="btn btn-danger" onClick={() => setReversing(true)}>Balik distribusi ini</button>
+                  <button className="btn btn-danger" onClick={() => setReversing(true)}>Proses pengembalian dana</button>
                 </>
               ) : (
                 <>
                   <div className="field">
-                    <label htmlFor="reverse-reason">Alasan pembalikan (wajib)</label>
+                    <label htmlFor="reverse-reason">Alasan pengembalian dana (wajib)</label>
                     <input id="reverse-reason" className="input" value={reverseReason}
                       onChange={(e) => setReverseReason(e.target.value)} placeholder="Pelanggan minta refund…" />
                   </div>
                   {error && <div className="alert s-critical" role="alert">{error}</div>}
                   <div className="row">
                     <button className="btn btn-danger" disabled={busy || !reverseReason.trim()} onClick={reverse}>
-                      {busy ? 'Memproses…' : (<>Konfirmasi balik {d.code}, <Money value={d.totalDistributed} /></>)}
+                      {busy ? 'Memproses…' : (<>Konfirmasi pengembalian dana {d.code}, <Money value={d.totalDistributed} /></>)}
                     </button>
                     <button className="btn btn-sm" onClick={() => { setReversing(false); setError(null); }}>Batal</button>
                   </div>

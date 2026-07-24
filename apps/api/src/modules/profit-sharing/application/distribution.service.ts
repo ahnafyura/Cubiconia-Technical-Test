@@ -55,7 +55,7 @@ export class DistributionService {
       select: { id: true, code: true },
     });
     if (existing) {
-      this.logger.log(`Distribusi untuk ${transactionId} sudah ada — dilewati (idempoten)`);
+      this.logger.log(`Distribusi untuk ${transactionId} sudah ada, dilewati (idempoten)`);
       return { ...existing, created: false };
     }
 
@@ -210,12 +210,12 @@ export class DistributionService {
     });
     if (!original) throw new NotFoundException('Distribusi tidak ditemukan');
     if (original.status !== 'SETTLED') {
-      throw new BadRequestException('Hanya distribusi SETTLED yang bisa dibalik — belum cair, tidak ada yang perlu dinegasikan');
+      throw new BadRequestException('Hanya distribusi SETTLED yang bisa dikembalikan dananya, karena belum cair tidak ada yang perlu dinegasikan');
     }
     if (original.reversedBy) {
-      throw new BadRequestException('Distribusi ini sudah pernah dibalik sebelumnya');
+      throw new BadRequestException('Distribusi ini sudah pernah dikembalikan dananya sebelumnya');
     }
-    if (!reason.trim()) throw new BadRequestException('Alasan pembalikan wajib diisi');
+    if (!reason.trim()) throw new BadRequestException('Alasan pengembalian dana wajib diisi');
 
     const code = await this.nextCode();
 
@@ -249,7 +249,7 @@ export class DistributionService {
           entryType: 'REVERSAL',
           distributionId: reversal.id,
           occurredAt: new Date(),
-          description: `Pembalikan ${original.code}: ${reason}`,
+          description: `Pengembalian dana ${original.code}: ${reason}`,
         });
       }
 
@@ -270,7 +270,7 @@ export class DistributionService {
       return reversal;
     });
 
-    this.logger.log(`${original.code} dibalik lewat ${created.code}: ${reason}`);
+    this.logger.log(`${original.code} dikembalikan dananya lewat ${created.code}, alasan ${reason}`);
     return created;
   }
 

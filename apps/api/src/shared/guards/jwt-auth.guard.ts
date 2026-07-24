@@ -45,7 +45,7 @@ export class JwtAuthGuard implements CanActivate {
       context.getClass(),
     ]);
     if (required && !principal.permissions.includes(required)) {
-      throw new UnauthorizedException(`Butuh izin: ${required}`);
+      throw new UnauthorizedException(`Butuh izin ${required}`);
     }
     return true;
   }

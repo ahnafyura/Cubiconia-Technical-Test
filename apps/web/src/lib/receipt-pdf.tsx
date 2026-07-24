@@ -40,7 +40,7 @@ const STATUS_TONE: Record<string, { fg: string; bg: string; label: string }> = {
   SETTLED: { fg: COLOR.good, bg: COLOR.goodWash, label: 'Final' },
   PENDING_APPROVAL: { fg: COLOR.warning, bg: COLOR.warningWash, label: 'Menunggu persetujuan' },
   REJECTED: { fg: COLOR.critical, bg: COLOR.criticalWash, label: 'Ditolak' },
-  REVERSED: { fg: COLOR.critical, bg: COLOR.criticalWash, label: 'Dibalik' },
+  REVERSED: { fg: COLOR.critical, bg: COLOR.criticalWash, label: 'Dikembalikan' },
 };
 
 export const styles = StyleSheet.create({

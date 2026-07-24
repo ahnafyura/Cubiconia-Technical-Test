@@ -78,7 +78,7 @@ export function TrendChart({ points }: { points: TrendPoint[] }) {
         width="100%"
         height={HEIGHT}
         role="img"
-        aria-label={`Bagi hasil per bulan, ${points.length} bulan terakhir, bulan ${monthLabel(active.month)}: ${rp(active.total)}`}
+        aria-label={`Bagi hasil per bulan, ${points.length} bulan terakhir, bulan ${monthLabel(active.month)} ${rp(active.total)}`}
       >
         <defs>
           <clipPath id={clipId}>
@@ -123,7 +123,7 @@ export function TrendChart({ points }: { points: TrendPoint[] }) {
             onBlur={() => setHover(null)}
             tabIndex={0}
             role="button"
-            aria-label={`${monthLabel(c.month)}: ${rp(c.total)}`}
+            aria-label={`${monthLabel(c.month)} ${rp(c.total)}`}
             className="chart-hit"
             style={{ cursor: 'pointer' }}
           />

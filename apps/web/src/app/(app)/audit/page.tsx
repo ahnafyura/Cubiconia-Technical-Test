@@ -27,7 +27,7 @@ export default function AuditLogPage() {
       <div className="page-head">
         <div>
           <h1>Audit Log</h1>
-          <p className="page-sub">Jejak siapa melakukan apa, kapan, terhadap data apa — 50 kejadian terakhir</p>
+          <p className="page-sub">Jejak siapa melakukan apa, kapan, terhadap data apa, 50 kejadian terakhir</p>
         </div>
       </div>
 

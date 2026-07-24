@@ -399,13 +399,13 @@ async function main(): Promise<void> {
     transaksi: await prisma.transaction.count(),
   };
 
-  console.log('Selesai:', counts);
-  console.log('\nAkun demo:');
-  console.log('  admin@contoh.id     / demo1234   (admin keuangan — semua izin) → /dashboard');
-  console.log('  sales@contoh.id     / demo1234   (ops penjualan — cuma transaksi) → /transaksi');
-  console.log('  hr@contoh.id        / demo1234   (admin direktori — karyawan & unit) → /direktori');
-  console.log('  investor1@contoh.id / demo1234   (PT Maju Investama — muncul di banyak aturan) → /portal');
-  console.log('  investor2@contoh.id / demo1234   (Budi Santoso — kasus lebih sederhana) → /portal');
+  console.log('Selesai', counts);
+  console.log('\nAkun demo');
+  console.log('  admin@contoh.id     / demo1234   (admin keuangan, semua izin) → /dashboard');
+  console.log('  sales@contoh.id     / demo1234   (ops penjualan, cuma transaksi) → /transaksi');
+  console.log('  hr@contoh.id        / demo1234   (admin direktori, karyawan & unit) → /direktori');
+  console.log('  investor1@contoh.id / demo1234   (PT Maju Investama, muncul di banyak aturan) → /portal');
+  console.log('  investor2@contoh.id / demo1234   (Budi Santoso, kasus lebih sederhana) → /portal');
 }
 
 main()

@@ -36,7 +36,7 @@ export default function SimulatorPage() {
       <div className="page-head">
         <div>
           <h1>Simulator</h1>
-          <p className="page-sub">Uji coba mandiri — lihat rantai aturan yang sudah aktif tanpa membuat aturan baru</p>
+          <p className="page-sub">Uji coba mandiri, lihat rantai aturan yang sudah aktif tanpa membuat aturan baru</p>
         </div>
       </div>
 

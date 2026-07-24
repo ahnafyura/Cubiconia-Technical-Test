@@ -21,7 +21,7 @@ interface LedgerResponse { balance: string; entries: LedgerEntry[] }
 const ENTRY_LABEL: Record<LedgerEntry['entryType'], string> = {
   PROFIT_SHARE: 'Bagi hasil',
   PAYOUT: 'Pencairan',
-  REVERSAL: 'Pembalikan',
+  REVERSAL: 'Pengembalian dana',
   ADJUSTMENT: 'Penyesuaian',
 };
 
@@ -58,7 +58,7 @@ export default function PortalHome() {
         )}
         <p className="muted" style={{ fontSize: 'var(--text-sm)', marginTop: 'var(--space-sm)' }}>
           Dicatat secara langsung setiap kali transaksi selesai. Pencairan aktual
-          dijadwalkan periodik oleh admin; saldo ini boleh lebih tinggi dari yang
+          dijadwalkan periodik oleh admin, saldo ini boleh lebih tinggi dari yang
           sudah masuk rekening.
         </p>
       </div>
