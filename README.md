@@ -18,7 +18,7 @@ Administrator mengatur aturan bagi hasil. Setiap transaksi yang selesai langsung
 
 </div>
 
-**Daftar isi** · 🚀 [Menjalankan](#menjalankan) · 🗺️ [Alur data](#alur-data) · 🎬 [Alur demo](#alur-demo-5-menit) · ✨ [Fitur](#fitur) · 🛡️ [Kenapa bisa dipercaya](#yang-membuat-sistem-ini-bisa-dipercaya) · 🧪 [Tes](#tes) · 📌 [Status](#status) · 🧠 [Konteks & keputusan desain](#konteks--keputusan-desain)
+**Daftar isi** · 🚀 [Menjalankan](#menjalankan) · 🗺️ [Alur data](#alur-data) · 🎬 [Alur demo](#alur-demo-5-menit) · ✨ [Fitur](#fitur) · 🛡️ [Yang Ada Pada Sistem](#yang-ada-pada-sistem) · 🧪 [Tes](#tes) · 📌 [Status](#status) · 🧠 [Konteks & keputusan desain](#konteks--keputusan-desain)
 
 ## Menjalankan
 
@@ -116,7 +116,7 @@ flowchart LR
 | 🏢 | Bagan organisasi | SVG, garis penghubung melengkung per cabang, klik untuk lihat karyawan sungguhan | `/direktori/bagan` |
 | ⚙️ | Ambang approval | Diatur lewat layar admin, bukan di-hardcode di kode | `/pengaturan` |
 
-## Yang membuat sistem ini bisa dipercaya
+## Yang Ada Pada Sistem
 
 **Aturan berlapis (composable).** Beberapa aturan bisa berlaku bersamaan, laba mengalir melewati rantai terurut. Satu mekanisme (`stackable` + `basis`) melayani tiga kebutuhan sekaligus, yaitu aturan tunggal, komposisi berlapis, dan mode hybrid.
 
