@@ -1,0 +1,52 @@
+<svg width="1200" height="300" viewBox="0 0 1200 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Bagi Hasil — Profit Sharing Platform">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#eef4fc"/>
+      <stop offset="55%" stop-color="#dde7f4"/>
+      <stop offset="100%" stop-color="#c9e4ff"/>
+    </linearGradient>
+    <linearGradient id="bar1" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#2a78d6"/>
+      <stop offset="100%" stop-color="#1d5aa8"/>
+    </linearGradient>
+    <linearGradient id="bar2" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1baf7a"/>
+      <stop offset="100%" stop-color="#128a5e"/>
+    </linearGradient>
+    <linearGradient id="bar3" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#eda100"/>
+      <stop offset="100%" stop-color="#c17f00"/>
+    </linearGradient>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#061221" flood-opacity="0.10"/>
+    </filter>
+  </defs>
+
+  <rect x="0" y="0" width="1200" height="300" rx="28" fill="url(#bg)"/>
+  <rect x="1.5" y="1.5" width="1197" height="297" rx="26.5" fill="none" stroke="#c9d4e1" stroke-width="1"/>
+
+  <!-- wordmark -->
+  <g font-family="'Segoe UI', Inter, 'Helvetica Neue', Arial, sans-serif">
+    <text x="72" y="132" font-size="58" font-weight="700" letter-spacing="-1" fill="#061221">Bagi Hasil</text>
+    <text x="72" y="168" font-size="19" font-weight="600" letter-spacing="3" fill="#006cd8">PROFIT SHARING PLATFORM</text>
+    <text x="72" y="206" font-size="16" fill="#505f71">Aturan bagi hasil berlapis, snapshot saat eksekusi,</text>
+    <text x="72" y="228" font-size="16" fill="#505f71">ledger append-only yang ditegakkan database.</text>
+  </g>
+
+  <!-- decorative distribution waterfall, echoes the real /distribusi screen -->
+  <g filter="url(#soft)">
+    <rect x="880" y="150" width="46" height="90" rx="8" fill="url(#bar1)"/>
+    <rect x="944" y="110" width="46" height="130" rx="8" fill="url(#bar2)"/>
+    <rect x="1008" y="70"  width="46" height="170" rx="8" fill="url(#bar3)"/>
+    <rect x="1072" y="40"  width="46" height="200" rx="8" fill="url(#bar1)" opacity="0.55"/>
+  </g>
+  <g stroke="#8fa6c2" stroke-width="1.5" stroke-dasharray="3 4" fill="none" opacity="0.8">
+    <path d="M926 158 L944 118"/>
+    <path d="M990 118 L1008 78"/>
+    <path d="M1054 78 L1072 48"/>
+  </g>
+  <text x="903" y="264" font-size="12" fill="#505f71" font-family="'Segoe UI', Inter, sans-serif" text-anchor="middle">basis</text>
+  <text x="967" y="264" font-size="12" fill="#505f71" font-family="'Segoe UI', Inter, sans-serif" text-anchor="middle">lapis 1</text>
+  <text x="1031" y="264" font-size="12" fill="#505f71" font-family="'Segoe UI', Inter, sans-serif" text-anchor="middle">lapis 2</text>
+  <text x="1095" y="264" font-size="12" fill="#505f71" font-family="'Segoe UI', Inter, sans-serif" text-anchor="middle">sisa</text>
+</svg>
